@@ -1,0 +1,76 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          nginx-zend
+# Required-Start:    $syslog
+# Required-Stop:     $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: nginx+zend
+# Description:
+#
+### END INIT INFO
+
+#
+# Init.d file for Zend-server+nginx via UNIX socket
+#
+# 
+
+#  # update-rc.d zend defaults
+#  service zend restart
+#
+
+if [ -f /etc/zce.rc ];then
+    . /etc/zce.rc
+else
+    echo "/etc/zce.rc doesn't exist!"
+    exit 1;
+fi
+ 
+ 
+user=nginx
+group=nginx
+
+start()
+{
+    if ! kill -0 `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null;then
+        killall -9  $ZCE_PREFIX/gui/lighttpd/sbin/php 2>/dev/null
+        rm $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null
+    fi
+    $ZCE_PREFIX/gui/lighttpd/bin/spawn-fcgi \
+      -s $ZCE_PREFIX/tmp/php-fastcgi.socket \
+      -f "$ZCE_PREFIX/gui/lighttpd/sbin/php -c $ZCE_PREFIX/etc/php.ini" \
+      -u ${user} -g ${group} -C 5 -P $ZCE_PREFIX/tmp/php-fcgi.pid
+    chmod 666 $ZCE_PREFIX/tmp/php-fastcgi.socket
+}
+stop()
+{
+    echo -n "stopping $0 server"..
+    if ! kill -0 `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null;then
+        killall -9 $ZCE_PREFIX/gui/lighttpd/sbin/php 2>/dev/null
+        rm $ZCE_PREFIX/tmp/php-fastcgi.socket 2>/dev/null
+        rm $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null
+    else
+        kill `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null
+    fi
+    echo "done"
+ 
+}
+ 
+case "$1" in
+        start)
+                start
+                ;;
+        stop)
+                stop
+                ;;
+        restart)
+                stop
+                sleep 1
+                start
+                ;;
+        *)
+                usage
+                exit 1
+esac
+ 
+exit $?
