@@ -27,30 +27,83 @@ else
 fi
  
  
-user=nginx
-group=nginx
 
-start()
-{
-    if ! kill -0 `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null;then
-        killall -9  $ZCE_PREFIX/gui/lighttpd/sbin/php 2>/dev/null
-        rm $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null
+
+
+spawnfcgi="${ZCE_PREFIX}/gui/lighttpd/bin/spawn-fcgi"
+php_cgi="${ZCE_PREFIX}/gui/lighttpd/sbin/php"
+
+prog=$(basename $php_cgi)
+
+ip=127.0.0.1
+port=9000
+user=nginx
+group=zend
+childs=5
+pidfile="${ZCE_PREFIX}/tmp/php-fcgi.pid"
+socket="${ZCE_PREFIX}/tmp/php-fastcgi.socket"
+config="${ZCE_PREFIX}/etc/php.ini" 
+
+folder="${ZCE_PREFIX}" 
+# --chdir ${folder}
+opts="-s ${socket} -c ${config} -u ${user} -g ${group} -P ${pidfile} -C ${childs} -f ${php_cgi}"
+
+
+start() {
+    if [ ! -x $php_cgi ];then
+      exit 1
+      echo "file ${php_cgi} missing.. exiting"
     fi
-    $ZCE_PREFIX/gui/lighttpd/bin/spawn-fcgi \
-      -s $ZCE_PREFIX/tmp/php-fastcgi.socket \
-      -f "$ZCE_PREFIX/gui/lighttpd/sbin/php -c $ZCE_PREFIX/etc/php.ini" \
-      -u ${user} -g ${group} -C 5 -P $ZCE_PREFIX/tmp/php-fcgi.pid
-    chmod 666 $ZCE_PREFIX/tmp/php-fastcgi.socket
+    if [ ! -x $spawnfcgi ];then
+      exit 1
+      echo "file ${spawnfcgi} missing.. exiting"
+    fi
+
+    if ! kill -0 `cat ${pidfile} 2>/dev/null` 2>/dev/null;then
+        killall ${php_cgi} 2>/dev/null
+        rm ${pidfile} 2>/dev/null
+    fi
+    echo -n $"Starting $prog: "
+    # start-stop-daemon --pidfile ${pidfile} --chuid ${user} --exec ${spawnfcgi} --background --start -- "${opts}"
+    # daemon $spawnfcgi -a ${ip} -p ${port} -u ${user} -g ${group} -P ${pidfile} -C ${childs} -f ${php_cgi}
+    # echo $spawnfcgi -s ${socket} -f "${php_cgi} -c ${config}" -u ${user} -g ${group}  -C ${childs}  -P ${pidfile}
+    $spawnfcgi -s ${socket} -f "${php_cgi} -c ${config}" -u ${user} -g ${group}  -C ${childs}  -P ${pidfile}
+    retval=$?
+    
+        if [ $retval -eq 0 ]; then
+            echo ""
+            chmod 666 ${socket}
+        else
+            echo "...error"
+        fi
+
+    return $retval
+
+
 }
+
+
+#start()
+#{
+#    if ! kill -0 `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null;then
+#        killall -9  $ZCE_PREFIX/gui/lighttpd/sbin/php 2>/dev/null
+#        rm $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null
+#    fi
+#    $ZCE_PREFIX/gui/lighttpd/bin/spawn-fcgi \
+#      -s $ZCE_PREFIX/tmp/php-fastcgi.socket \
+#      -f "$ZCE_PREFIX/gui/lighttpd/sbin/php -c $ZCE_PREFIX/etc/php.ini" \
+#      -u ${user} -g ${group} -C 5 -P $ZCE_PREFIX/tmp/php-fcgi.pid
+#    chmod 666 $ZCE_PREFIX/tmp/php-fastcgi.socket
+##}
 stop()
 {
     echo -n "stopping $0 server"..
-    if ! kill -0 `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null;then
-        killall -9 $ZCE_PREFIX/gui/lighttpd/sbin/php 2>/dev/null
-        rm $ZCE_PREFIX/tmp/php-fastcgi.socket 2>/dev/null
-        rm $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null
+    if ! kill -0 `cat ${pidfile} 2>/dev/null` 2>/dev/null;then
+        killall ${php_cgi} 2>/dev/null
+        rm ${socket} 2>/dev/null
+        rm ${pidfile} 2>/dev/null
     else
-        kill `cat $ZCE_PREFIX/tmp/php-fcgi.pid 2>/dev/null` 2>/dev/null
+        kill `cat ${pidfile} 2>/dev/null` 2>/dev/null
     fi
     echo "done"
  
