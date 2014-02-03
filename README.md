@@ -1,9 +1,11 @@
 ### [init.d-zend]()
 
 
-Configurable Init.d script, for Zend Server + Nginx in Debian GNU\Linux
+Configurable Init.d script, for Zend Server + Nginx
 
-### installation
+### installation  
+
+( Tested on Debian 7.0 wheezy Linux )
 
     # cd /etc/init.d
     # wget https://raw.github.com/julianromerajuarez/init.d-zend/master/zend
